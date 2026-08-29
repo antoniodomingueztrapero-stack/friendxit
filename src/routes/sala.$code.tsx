@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { confettiSubtle, sfxReveal } from "@/lib/fx";
 import { PlayerIdentityDialog } from "@/components/PlayerIdentityDialog";
+import { roomInviteUrl } from "@/lib/site";
+
 
 
 export const Route = createFileRoute("/sala/$code")({
