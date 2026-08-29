@@ -344,33 +344,40 @@ function Sala() {
   }, [round]);
 
   useEffect(() => {
-
     if (!room) return;
+    // Agrupa ráfagas de cambios realtime en una sola recarga: evita una
+    // avalancha de consultas cuando varios jugadores actúan a la vez.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const reload = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void load(), 250);
+    };
     const channel = supabase
       .channel(`room-${room.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, reload)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${room.id}` },
-        () => void load(),
+        reload,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "rounds", filter: `room_id=eq.${room.id}` },
-        () => void load(),
+        reload,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "submissions", filter: `room_id=eq.${room.id}` },
-        () => void load(),
+        reload,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "votes", filter: `room_id=eq.${room.id}` },
-        () => void load(),
+        reload,
       )
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
   }, [room, load]);
@@ -609,7 +616,7 @@ function Sala() {
   }
 
   async function reveal() {
-    if (!round || !room) return;
+    if (!round || !room || round.phase !== "vote") return;
     setBusy(true);
     try {
       const deltas = computeScores(
