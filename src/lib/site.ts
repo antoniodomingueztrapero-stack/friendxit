@@ -20,5 +20,6 @@ export function shareOrigin(): string {
 
 /** Enlace de invitación a una sala. */
 export function roomInviteUrl(code: string): string {
-  return `${shareOrigin()}/sala/${code.toUpperCase()}`;
+  const roomCode = encodeURIComponent(code.trim().toUpperCase());
+  return `${shareOrigin()}/auth?sala=${roomCode}`;
 }
