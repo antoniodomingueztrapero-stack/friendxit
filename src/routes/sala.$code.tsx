@@ -702,7 +702,7 @@ function Sala() {
 
   async function shareInvite() {
     if (!room) return;
-    const url = `${window.location.origin}/sala/${room.code}`;
+    const url = roomInviteUrl(room.code);
     const text = `Únete a mi partida de Metáfora (código ${room.code}): ${url}`;
     try {
       if (navigator.share) {
@@ -710,11 +710,12 @@ function Sala() {
         return;
       }
       await navigator.clipboard.writeText(url);
-      toast.success("Enlace de invitación copiado");
+      toast.success("Enlace de invitación copiado", { description: url });
     } catch {
       /* el usuario ha cancelado */
     }
   }
+
 
 
   if (authLoading || loading) {
