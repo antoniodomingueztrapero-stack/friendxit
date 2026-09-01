@@ -27,13 +27,13 @@ import { roomInviteUrl } from "@/lib/site";
 export const Route = createFileRoute("/sala/$code")({
   head: () => ({
     meta: [
-      { title: "Sala de juego — Metáfora" },
+      { title: "Sala de juego — Friendxit" },
       {
         name: "description",
         content: "Sube tus cartas desde la galería y juega la partida con tu grupo en tiempo real.",
       },
-      { property: "og:title", content: "Sala de juego — Metáfora" },
-      { property: "og:description", content: "Partida de Metáfora en curso." },
+      { property: "og:title", content: "Sala de juego — Friendxit" },
+      { property: "og:description", content: "Partida de Friendxit en curso." },
     ],
   }),
   component: Sala,
@@ -705,10 +705,10 @@ function Sala() {
   async function shareInvite() {
     if (!room) return;
     const url = roomInviteUrl(room.code);
-    const text = `Únete a mi partida de Metáfora (código ${room.code}): ${url}`;
+    const text = `Únete a mi partida de Friendxit (código ${room.code}): ${url}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Metáfora", text, url });
+        await navigator.share({ title: "Friendxit", text, url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -827,7 +827,7 @@ function Sala() {
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center">
           <Link to="/" className="font-display text-lg font-semibold truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-2">

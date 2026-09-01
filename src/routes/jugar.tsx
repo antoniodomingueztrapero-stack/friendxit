@@ -11,13 +11,13 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/jugar")({
   head: () => ({
     meta: [
-      { title: "Crear o unirse a una sala — Metáfora" },
+      { title: "Crear o unirse a una sala — Friendxit" },
       {
         name: "description",
         content:
-          "Crea una sala de Metáfora y comparte el código, o únete a la partida de tus amigos.",
+          "Crea una sala de Friendxit y comparte el código, o únete a la partida de tus amigos.",
       },
-      { property: "og:title", content: "Crear o unirse a una sala — Metáfora" },
+      { property: "og:title", content: "Crear o unirse a una sala — Friendxit" },
       {
         property: "og:description",
         content: "Empieza una partida nueva o entra con el código de tus amigos.",
@@ -91,7 +91,7 @@ function Jugar() {
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center">
           <Link to="/" className="font-display text-lg font-semibold truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
         <nav className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted-foreground">

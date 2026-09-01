@@ -12,13 +12,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/mazos")({
   head: () => ({
     meta: [
-      { title: "Mis mazos de cartas — Metáfora" },
+      { title: "Mis mazos de cartas — Friendxit" },
       {
         name: "description",
         content:
           "Guarda tus mazos de cartas: sube muchas imágenes desde la galería una vez y reutilízalas en cualquier partida.",
       },
-      { property: "og:title", content: "Mis mazos de cartas — Metáfora" },
+      { property: "og:title", content: "Mis mazos de cartas — Friendxit" },
       {
         property: "og:description",
         content: "Sube y guarda tus mazos de cartas para jugar cuando quieras.",
@@ -170,7 +170,7 @@ function Mazos() {
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center">
           <Link to="/" className="font-display text-lg font-semibold truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
         <Link
