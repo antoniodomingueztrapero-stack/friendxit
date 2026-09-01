@@ -53,7 +53,17 @@ export const Route = createFileRoute("/sala/$code")({
   component: Sala,
 });
 
-type Room = { id: string; code: string; host_id: string; status: string; mode: string };
+type Room = {
+  id: string;
+  code: string;
+  host_id: string;
+  status: string;
+  mode: string;
+  timers_enabled: boolean;
+  clue_seconds: number;
+  submit_seconds: number;
+  vote_seconds: number;
+};
 type Player = {
   user_id: string;
   score: number;
@@ -69,7 +79,11 @@ type Round = {
   clue: string | null;
   clue_at: string | null;
   phase: string;
+  phase_started_at: string | null;
+  vote_at: string | null;
+  clue_auto: boolean;
 };
+
 type Card = { id: string; image_path: string; cardId?: string | null };
 type Submission = {
   id: string;
