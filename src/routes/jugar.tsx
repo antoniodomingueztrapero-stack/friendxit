@@ -27,12 +27,16 @@ export const Route = createFileRoute("/jugar")({
   component: Jugar,
 });
 
+const DEFAULT_TIMES = { clue: 80, submit: 60, vote: 40 } as const;
+
 function Jugar() {
   const navigate = useNavigate();
   const { user, loading, displayName, signOut } = useAuth();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"shared" | "personal">("shared");
+  const [timersEnabled, setTimersEnabled] = useState(true);
+  const [times, setTimes] = useState({ ...DEFAULT_TIMES });
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -45,7 +49,15 @@ function Jugar() {
       const newCode = generateRoomCode();
       const { data, error } = await supabase
         .from("rooms")
-        .insert({ code: newCode, host_id: user.id, mode })
+        .insert({
+          code: newCode,
+          host_id: user.id,
+          mode,
+          timers_enabled: timersEnabled,
+          clue_seconds: clamp(times.clue, 15, 600),
+          submit_seconds: clamp(times.submit, 15, 600),
+          vote_seconds: clamp(times.vote, 10, 600),
+        })
         .select("id, code")
         .single();
       if (error) throw error;
@@ -57,6 +69,7 @@ function Jugar() {
       setBusy(false);
     }
   }
+
 
   async function joinRoom(e: React.FormEvent) {
     e.preventDefault();
