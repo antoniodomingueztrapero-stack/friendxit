@@ -156,7 +156,9 @@ function Sala() {
     if (!user) return;
     const { data: roomRow } = await supabase
       .from("rooms")
-      .select("id, code, host_id, status, mode")
+      .select(
+        "id, code, host_id, status, mode, timers_enabled, clue_seconds, submit_seconds, vote_seconds",
+      )
       .eq("code", code.toUpperCase())
       .maybeSingle();
 
