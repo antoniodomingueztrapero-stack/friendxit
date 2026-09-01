@@ -11,13 +11,13 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/jugar")({
   head: () => ({
     meta: [
-      { title: "Crear o unirse a una sala — Metáfora" },
+      { title: "Crear o unirse a una sala — Friendxit" },
       {
         name: "description",
         content:
-          "Crea una sala de Metáfora y comparte el código, o únete a la partida de tus amigos.",
+          "Crea una sala de Friendxit y comparte el código, o únete a la partida de tus amigos.",
       },
-      { property: "og:title", content: "Crear o unirse a una sala — Metáfora" },
+      { property: "og:title", content: "Crear o unirse a una sala — Friendxit" },
       {
         property: "og:description",
         content: "Empieza una partida nueva o entra con el código de tus amigos.",
@@ -27,12 +27,21 @@ export const Route = createFileRoute("/jugar")({
   component: Jugar,
 });
 
+const DEFAULT_TIMES = { clue: 80, submit: 60, vote: 40 } as const;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(Math.round(value) || min, min), max);
+}
+
+
 function Jugar() {
   const navigate = useNavigate();
   const { user, loading, displayName, signOut } = useAuth();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"shared" | "personal">("shared");
+  const [timersEnabled, setTimersEnabled] = useState(true);
+  const [times, setTimes] = useState({ ...DEFAULT_TIMES });
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -45,7 +54,15 @@ function Jugar() {
       const newCode = generateRoomCode();
       const { data, error } = await supabase
         .from("rooms")
-        .insert({ code: newCode, host_id: user.id, mode })
+        .insert({
+          code: newCode,
+          host_id: user.id,
+          mode,
+          timers_enabled: timersEnabled,
+          clue_seconds: clamp(times.clue, 15, 600),
+          submit_seconds: clamp(times.submit, 15, 600),
+          vote_seconds: clamp(times.vote, 10, 600),
+        })
         .select("id, code")
         .single();
       if (error) throw error;
@@ -57,6 +74,7 @@ function Jugar() {
       setBusy(false);
     }
   }
+
 
   async function joinRoom(e: React.FormEvent) {
     e.preventDefault();
@@ -91,7 +109,7 @@ function Jugar() {
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center">
           <Link to="/" className="font-display text-lg font-semibold truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
         <nav className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -155,7 +173,74 @@ function Jugar() {
                 </label>
               ))}
             </fieldset>
+
+            <fieldset className="mt-5 space-y-2">
+              <legend className="text-sm text-muted-foreground">Ritmo de la partida</legend>
+              {(
+                [
+                  {
+                    value: true,
+                    title: "Con temporizadores",
+                    desc: "Cada fase tiene su tiempo. Si todos terminan antes, se avanza al instante.",
+                  },
+                  {
+                    value: false,
+                    title: "Sin tiempo (manual)",
+                    desc: "El anfitrión decide cuándo avanza cada fase, esperando a todos.",
+                  },
+                ]
+              ).map((t) => (
+                <label
+                  key={String(t.value)}
+                  className={`flex cursor-pointer gap-3 rounded-2xl border p-3 text-left transition ${
+                    timersEnabled === t.value ? "border-primary bg-secondary/50" : "border-border"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="timers"
+                    checked={timersEnabled === t.value}
+                    onChange={() => setTimersEnabled(t.value)}
+                    className="mt-1 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{t.title}</span>
+                    <span className="block text-xs text-muted-foreground">{t.desc}</span>
+                  </span>
+                </label>
+              ))}
+
+              {timersEnabled && (
+                <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border p-3">
+                  {(
+                    [
+                      { key: "clue" as const, label: "Pista" },
+                      { key: "submit" as const, label: "Cartas" },
+                      { key: "vote" as const, label: "Votos" },
+                    ]
+                  ).map((f) => (
+                    <div key={f.key} className="space-y-1">
+                      <Label htmlFor={`t-${f.key}`} className="text-xs text-muted-foreground">
+                        {f.label} (s)
+                      </Label>
+                      <Input
+                        id={`t-${f.key}`}
+                        type="number"
+                        min={f.key === "vote" ? 10 : 15}
+                        max={600}
+                        value={times[f.key]}
+                        onChange={(e) =>
+                          setTimes((prev) => ({ ...prev, [f.key]: Number(e.target.value) || 0 }))
+                        }
+                        className="text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </fieldset>
           </div>
+
           <Button onClick={createRoom} disabled={busy} className="mt-6 w-full rounded-full coarse:min-h-11">
             Crear sala nueva
           </Button>

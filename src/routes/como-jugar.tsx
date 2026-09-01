@@ -3,13 +3,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/como-jugar")({
   head: () => ({
     meta: [
-      { title: "Cómo se juega a Metáfora" },
+      { title: "Cómo se juega a Friendxit" },
       {
         name: "description",
         content:
-          "Reglas de Metáfora: sube tus cartas, da una pista como narrador, vota la carta correcta y suma puntos.",
+          "Reglas de Friendxit: sube tus cartas, da una pista como narrador, vota la carta correcta y suma puntos.",
       },
-      { property: "og:title", content: "Cómo se juega a Metáfora" },
+      { property: "og:title", content: "Cómo se juega a Friendxit" },
       {
         property: "og:description",
         content: "Reglas rápidas del Dixit online con tus propias fotos.",
@@ -46,7 +46,7 @@ function ComoJugar() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
       <Link to="/" className="font-display text-lg font-semibold">
-        Met<span className="text-gradient-gold">áfora</span>
+        Friend<span className="text-gradient-gold">xit</span>
       </Link>
       <h1 className="mt-8 text-4xl">Cómo se juega</h1>
       <p className="mt-3 text-muted-foreground">

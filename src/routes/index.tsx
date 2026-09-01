@@ -6,13 +6,13 @@ import { useAuth } from "@/hooks/useAuth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Metáfora — Dixit online con tus propias fotos" },
+      { title: "Friendxit — Dixit online con tus propias fotos" },
       {
         name: "description",
         content:
           "Juega gratis a un Dixit online: cada jugador sube sus cartas desde la galería del móvil y jugáis en tiempo real, de 3 a 10 personas.",
       },
-      { property: "og:title", content: "Metáfora — Dixit online con tus propias fotos" },
+      { property: "og:title", content: "Friendxit — Dixit online con tus propias fotos" },
       {
         property: "og:description",
         content: "Sube tus cartas desde la galería y juega en tiempo real con tus amigos.",
@@ -53,7 +53,7 @@ function Index() {
       <header className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-6 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center">
           <span className="font-display text-xl font-semibold tracking-tight truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </span>
         </div>
         <nav className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
@@ -143,7 +143,7 @@ function Index() {
       </main>
 
       <footer className="border-t border-border/60 py-8 text-center text-sm text-muted-foreground">
-        Metáfora — juego inspirado en Dixit, hecho para jugar con amigos.
+        Friendxit — juego inspirado en Dixit, hecho para jugar con amigos.
       </footer>
     </div>
   );

@@ -14,12 +14,12 @@ export const Route = createFileRoute("/auth")({
   }),
   head: () => ({
     meta: [
-      { title: "Entrar en Metáfora" },
+      { title: "Entrar en Friendxit" },
       {
         name: "description",
-        content: "Crea tu cuenta o inicia sesión para jugar partidas de Metáfora con tus amigos.",
+        content: "Crea tu cuenta o inicia sesión para jugar partidas de Friendxit con tus amigos.",
       },
-      { property: "og:title", content: "Entrar en Metáfora" },
+      { property: "og:title", content: "Entrar en Friendxit" },
       { property: "og:description", content: "Inicia sesión y empieza a jugar con tus amigos." },
     ],
   }),
@@ -109,7 +109,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center px-5 py-10">
       <div className="surface-panel w-full max-w-md p-8">
         <Link to="/" className="font-display text-lg font-semibold">
-          Met<span className="text-gradient-gold">áfora</span>
+          Friend<span className="text-gradient-gold">xit</span>
         </Link>
         {sala ? (
           <div className="surface-panel mt-6 p-4">

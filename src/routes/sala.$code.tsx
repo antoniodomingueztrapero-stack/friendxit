@@ -1,15 +1,28 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, ImagePlus, Layers, Loader2, Crown, Share2, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ImagePlus,
+  Layers,
+  Loader2,
+  Crown,
+  Share2,
+  Trash2,
+  FastForward,
+  Timer as TimerIcon,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { computeScores, phaseLabel } from "@/lib/game";
+import { autoClue } from "@/lib/clue";
 import { SignedImage } from "@/components/SignedImage";
 import { ScoreBoard, type ScoreRow } from "@/components/ScoreBoard";
 import { Podium } from "@/components/Podium";
 import { HandCarousel } from "@/components/HandCarousel";
 import { ClueBanner } from "@/components/ClueBanner";
+import { PhaseTimer, remainingSeconds } from "@/components/PhaseTimer";
 import {
   ReactionOverlay,
   ReactionPicker,
@@ -24,22 +37,33 @@ import { roomInviteUrl } from "@/lib/site";
 
 
 
+
 export const Route = createFileRoute("/sala/$code")({
   head: () => ({
     meta: [
-      { title: "Sala de juego — Metáfora" },
+      { title: "Sala de juego — Friendxit" },
       {
         name: "description",
         content: "Sube tus cartas desde la galería y juega la partida con tu grupo en tiempo real.",
       },
-      { property: "og:title", content: "Sala de juego — Metáfora" },
-      { property: "og:description", content: "Partida de Metáfora en curso." },
+      { property: "og:title", content: "Sala de juego — Friendxit" },
+      { property: "og:description", content: "Partida de Friendxit en curso." },
     ],
   }),
   component: Sala,
 });
 
-type Room = { id: string; code: string; host_id: string; status: string; mode: string };
+type Room = {
+  id: string;
+  code: string;
+  host_id: string;
+  status: string;
+  mode: string;
+  timers_enabled: boolean;
+  clue_seconds: number;
+  submit_seconds: number;
+  vote_seconds: number;
+};
 type Player = {
   user_id: string;
   score: number;
@@ -55,7 +79,11 @@ type Round = {
   clue: string | null;
   clue_at: string | null;
   phase: string;
+  phase_started_at: string | null;
+  vote_at: string | null;
+  clue_auto: boolean;
 };
+
 type Card = { id: string; image_path: string; cardId?: string | null };
 type Submission = {
   id: string;
@@ -128,7 +156,9 @@ function Sala() {
     if (!user) return;
     const { data: roomRow } = await supabase
       .from("rooms")
-      .select("id, code, host_id, status, mode")
+      .select(
+        "id, code, host_id, status, mode, timers_enabled, clue_seconds, submit_seconds, vote_seconds",
+      )
       .eq("code", code.toUpperCase())
       .maybeSingle();
 
@@ -241,7 +271,9 @@ function Sala() {
 
     const { data: roundRow } = await supabase
       .from("rounds")
-      .select("id, number, storyteller_id, clue, clue_at, phase")
+      .select(
+        "id, number, storyteller_id, clue, clue_at, phase, phase_started_at, vote_at, clue_auto",
+      )
       .eq("room_id", roomRow.id)
       .order("number", { ascending: false })
       .limit(1)
@@ -521,9 +553,10 @@ function Sala() {
     }
   }
 
-  async function submitClue(card: Card) {
+  async function submitClue(card: Card, opts?: { auto?: boolean; text?: string }) {
     if (!room || !round || !user) return;
-    if (!clue.trim()) {
+    const text = (opts?.text ?? clue).trim();
+    if (!text) {
       toast.error("Escribe una pista");
       return;
     }
@@ -542,12 +575,24 @@ function Sala() {
       if (isShared && card.cardId) {
         await supabase.from("cards").update({ played: true }).eq("id", card.cardId);
       }
+      const now = new Date().toISOString();
       await supabase
         .from("rounds")
-        .update({ clue: clue.trim(), clue_at: new Date().toISOString(), phase: "submit" })
+        .update({
+          clue: text,
+          clue_at: now,
+          phase_started_at: now,
+          phase: "submit",
+          clue_auto: !!opts?.auto,
+        })
         .eq("id", round.id);
       setClue("");
       setCarouselOpen(false);
+      if (opts?.auto) {
+        toast.info("Se agotó el tiempo: pista y carta automáticas (−1 punto).", {
+          description: text,
+        });
+      }
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se ha podido enviar");
@@ -555,6 +600,7 @@ function Sala() {
       setBusy(false);
     }
   }
+
 
   async function submitCard(card: Card) {
     if (!room || !round || !user) return;
@@ -610,7 +656,11 @@ function Sala() {
     if (!round) return;
     setBusy(true);
     try {
-      await supabase.from("rounds").update({ phase: "vote" }).eq("id", round.id);
+      const now = new Date().toISOString();
+      await supabase
+        .from("rounds")
+        .update({ phase: "vote", vote_at: now, phase_started_at: now })
+        .eq("id", round.id);
       await load();
     } finally {
       setBusy(false);
@@ -626,17 +676,24 @@ function Sala() {
         votes,
         round.storyteller_id,
         players.map((p) => p.user_id),
+        { clueAuto: round.clue_auto },
       );
+      // La puntuación nunca baja de 0: las penalizaciones se recortan.
+      const finalDelta: Record<string, number> = {};
+      for (const p of players) {
+        const raw = deltas[p.user_id] ?? 0;
+        finalDelta[p.user_id] = Math.max(p.score + raw, 0) - p.score;
+      }
       const rows = players.map((p) => ({
         round_id: round.id,
         room_id: room.id,
         player_id: p.user_id,
-        points: deltas[p.user_id] ?? 0,
-        total_after: p.score + (deltas[p.user_id] ?? 0),
+        points: finalDelta[p.user_id] ?? 0,
+        total_after: p.score + (finalDelta[p.user_id] ?? 0),
       }));
       await supabase.from("round_scores").upsert(rows, { onConflict: "round_id,player_id" });
       for (const p of players) {
-        const delta = deltas[p.user_id] ?? 0;
+        const delta = finalDelta[p.user_id] ?? 0;
         if (delta !== 0) {
           await supabase
             .from("room_players")
@@ -645,12 +702,16 @@ function Sala() {
             .eq("user_id", p.user_id);
         }
       }
-      await supabase.from("rounds").update({ phase: "reveal" }).eq("id", round.id);
+      await supabase
+        .from("rounds")
+        .update({ phase: "reveal", phase_started_at: new Date().toISOString() })
+        .eq("id", round.id);
       await load();
     } finally {
       setBusy(false);
     }
   }
+
 
   async function nextRound() {
     if (!round || !room) return;
@@ -705,10 +766,10 @@ function Sala() {
   async function shareInvite() {
     if (!room) return;
     const url = roomInviteUrl(room.code);
-    const text = `Únete a mi partida de Metáfora (código ${room.code}): ${url}`;
+    const text = `Únete a mi partida de Friendxit (código ${room.code}): ${url}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Metáfora", text, url });
+        await navigator.share({ title: "Friendxit", text, url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -827,7 +888,7 @@ function Sala() {
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
         <div className="flex min-w-0 items-center">
           <Link to="/" className="font-display text-lg font-semibold truncate">
-            Met<span className="text-gradient-gold">áfora</span>
+            Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-2">

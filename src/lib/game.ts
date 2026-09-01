@@ -23,12 +23,16 @@ export function generateRoomCode() {
  * - Si todos o nadie acierta la carta del narrador: narrador 0, el resto 2.
  * - Si no: narrador 3 y quien acierta 3.
  * - Cada jugador (no narrador) suma 1 por cada voto recibido en su carta.
+ * Penalizaciones por tiempo:
+ * - Si la pista la generó el temporizador, el narrador recibe 1 punto menos.
+ * - Quien no llega a votar pierde 1 punto (el total nunca baja de 0).
  */
 export function computeScores(
   submissions: Submission[],
   votes: Vote[],
   storytellerId: string,
   playerIds: string[],
+  opts?: { clueAuto?: boolean },
 ): Record<string, number> {
   const delta: Record<string, number> = {};
   for (const id of playerIds) delta[id] = 0;
@@ -56,8 +60,18 @@ export function computeScores(
     }
   }
 
+  // Penalización al narrador si la pista fue automática por tiempo.
+  if (opts?.clueAuto) delta[storytellerId] = (delta[storytellerId] ?? 0) - 1;
+
+  // Penalización a quien no votó (se le descuenta 1 punto).
+  for (const id of playerIds) {
+    if (id === storytellerId) continue;
+    if (!votes.some((v) => v.voter_id === id)) delta[id] = (delta[id] ?? 0) - 1;
+  }
+
   return delta;
 }
+
 
 export function phaseLabel(phase: string) {
   switch (phase) {

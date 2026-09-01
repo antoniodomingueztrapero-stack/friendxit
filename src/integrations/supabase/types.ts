@@ -169,28 +169,40 @@ export type Database = {
       }
       rooms: {
         Row: {
+          clue_seconds: number
           code: string
           created_at: string
           host_id: string
           id: string
           mode: string
           status: string
+          submit_seconds: number
+          timers_enabled: boolean
+          vote_seconds: number
         }
         Insert: {
+          clue_seconds?: number
           code: string
           created_at?: string
           host_id: string
           id?: string
           mode?: string
           status?: string
+          submit_seconds?: number
+          timers_enabled?: boolean
+          vote_seconds?: number
         }
         Update: {
+          clue_seconds?: number
           code?: string
           created_at?: string
           host_id?: string
           id?: string
           mode?: string
           status?: string
+          submit_seconds?: number
+          timers_enabled?: boolean
+          vote_seconds?: number
         }
         Relationships: []
       }
@@ -243,32 +255,41 @@ export type Database = {
         Row: {
           clue: string | null
           clue_at: string | null
+          clue_auto: boolean
           created_at: string
           id: string
           number: number
           phase: string
+          phase_started_at: string
           room_id: string
           storyteller_id: string
+          vote_at: string | null
         }
         Insert: {
           clue?: string | null
           clue_at?: string | null
+          clue_auto?: boolean
           created_at?: string
           id?: string
           number: number
           phase?: string
+          phase_started_at?: string
           room_id: string
           storyteller_id: string
+          vote_at?: string | null
         }
         Update: {
           clue?: string | null
           clue_at?: string | null
+          clue_auto?: boolean
           created_at?: string
           id?: string
           number?: number
           phase?: string
+          phase_started_at?: string
           room_id?: string
           storyteller_id?: string
+          vote_at?: string | null
         }
         Relationships: [
           {
