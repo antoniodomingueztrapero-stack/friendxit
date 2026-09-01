@@ -656,7 +656,11 @@ function Sala() {
     if (!round) return;
     setBusy(true);
     try {
-      await supabase.from("rounds").update({ phase: "vote" }).eq("id", round.id);
+      const now = new Date().toISOString();
+      await supabase
+        .from("rounds")
+        .update({ phase: "vote", vote_at: now, phase_started_at: now })
+        .eq("id", round.id);
       await load();
     } finally {
       setBusy(false);
@@ -672,17 +676,24 @@ function Sala() {
         votes,
         round.storyteller_id,
         players.map((p) => p.user_id),
+        { clueAuto: round.clue_auto },
       );
+      // La puntuación nunca baja de 0: las penalizaciones se recortan.
+      const finalDelta: Record<string, number> = {};
+      for (const p of players) {
+        const raw = deltas[p.user_id] ?? 0;
+        finalDelta[p.user_id] = Math.max(p.score + raw, 0) - p.score;
+      }
       const rows = players.map((p) => ({
         round_id: round.id,
         room_id: room.id,
         player_id: p.user_id,
-        points: deltas[p.user_id] ?? 0,
-        total_after: p.score + (deltas[p.user_id] ?? 0),
+        points: finalDelta[p.user_id] ?? 0,
+        total_after: p.score + (finalDelta[p.user_id] ?? 0),
       }));
       await supabase.from("round_scores").upsert(rows, { onConflict: "round_id,player_id" });
       for (const p of players) {
-        const delta = deltas[p.user_id] ?? 0;
+        const delta = finalDelta[p.user_id] ?? 0;
         if (delta !== 0) {
           await supabase
             .from("room_players")
@@ -691,12 +702,16 @@ function Sala() {
             .eq("user_id", p.user_id);
         }
       }
-      await supabase.from("rounds").update({ phase: "reveal" }).eq("id", round.id);
+      await supabase
+        .from("rounds")
+        .update({ phase: "reveal", phase_started_at: new Date().toISOString() })
+        .eq("id", round.id);
       await load();
     } finally {
       setBusy(false);
     }
   }
+
 
   async function nextRound() {
     if (!round || !room) return;
