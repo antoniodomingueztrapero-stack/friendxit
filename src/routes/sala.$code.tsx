@@ -553,9 +553,10 @@ function Sala() {
     }
   }
 
-  async function submitClue(card: Card) {
+  async function submitClue(card: Card, opts?: { auto?: boolean; text?: string }) {
     if (!room || !round || !user) return;
-    if (!clue.trim()) {
+    const text = (opts?.text ?? clue).trim();
+    if (!text) {
       toast.error("Escribe una pista");
       return;
     }
@@ -574,12 +575,24 @@ function Sala() {
       if (isShared && card.cardId) {
         await supabase.from("cards").update({ played: true }).eq("id", card.cardId);
       }
+      const now = new Date().toISOString();
       await supabase
         .from("rounds")
-        .update({ clue: clue.trim(), clue_at: new Date().toISOString(), phase: "submit" })
+        .update({
+          clue: text,
+          clue_at: now,
+          phase_started_at: now,
+          phase: "submit",
+          clue_auto: !!opts?.auto,
+        })
         .eq("id", round.id);
       setClue("");
       setCarouselOpen(false);
+      if (opts?.auto) {
+        toast.info("Se agotó el tiempo: pista y carta automáticas (−1 punto).", {
+          description: text,
+        });
+      }
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se ha podido enviar");
@@ -587,6 +600,7 @@ function Sala() {
       setBusy(false);
     }
   }
+
 
   async function submitCard(card: Card) {
     if (!room || !round || !user) return;
