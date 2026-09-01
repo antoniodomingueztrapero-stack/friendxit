@@ -1,15 +1,28 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, ImagePlus, Layers, Loader2, Crown, Share2, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ImagePlus,
+  Layers,
+  Loader2,
+  Crown,
+  Share2,
+  Trash2,
+  FastForward,
+  Timer as TimerIcon,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { computeScores, phaseLabel } from "@/lib/game";
+import { autoClue } from "@/lib/clue";
 import { SignedImage } from "@/components/SignedImage";
 import { ScoreBoard, type ScoreRow } from "@/components/ScoreBoard";
 import { Podium } from "@/components/Podium";
 import { HandCarousel } from "@/components/HandCarousel";
 import { ClueBanner } from "@/components/ClueBanner";
+import { PhaseTimer, remainingSeconds } from "@/components/PhaseTimer";
 import {
   ReactionOverlay,
   ReactionPicker,
@@ -21,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { confettiSubtle, sfxReveal } from "@/lib/fx";
 import { PlayerIdentityDialog } from "@/components/PlayerIdentityDialog";
 import { roomInviteUrl } from "@/lib/site";
+
 
 
 
