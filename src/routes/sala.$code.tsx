@@ -271,7 +271,9 @@ function Sala() {
 
     const { data: roundRow } = await supabase
       .from("rounds")
-      .select("id, number, storyteller_id, clue, clue_at, phase")
+      .select(
+        "id, number, storyteller_id, clue, clue_at, phase, phase_started_at, vote_at, clue_auto",
+      )
       .eq("room_id", roomRow.id)
       .order("number", { ascending: false })
       .limit(1)
