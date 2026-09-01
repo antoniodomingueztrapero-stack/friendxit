@@ -168,7 +168,74 @@ function Jugar() {
                 </label>
               ))}
             </fieldset>
+
+            <fieldset className="mt-5 space-y-2">
+              <legend className="text-sm text-muted-foreground">Ritmo de la partida</legend>
+              {(
+                [
+                  {
+                    value: true,
+                    title: "Con temporizadores",
+                    desc: "Cada fase tiene su tiempo. Si todos terminan antes, se avanza al instante.",
+                  },
+                  {
+                    value: false,
+                    title: "Sin tiempo (manual)",
+                    desc: "El anfitrión decide cuándo avanza cada fase, esperando a todos.",
+                  },
+                ]
+              ).map((t) => (
+                <label
+                  key={String(t.value)}
+                  className={`flex cursor-pointer gap-3 rounded-2xl border p-3 text-left transition ${
+                    timersEnabled === t.value ? "border-primary bg-secondary/50" : "border-border"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="timers"
+                    checked={timersEnabled === t.value}
+                    onChange={() => setTimersEnabled(t.value)}
+                    className="mt-1 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{t.title}</span>
+                    <span className="block text-xs text-muted-foreground">{t.desc}</span>
+                  </span>
+                </label>
+              ))}
+
+              {timersEnabled && (
+                <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border p-3">
+                  {(
+                    [
+                      { key: "clue" as const, label: "Pista" },
+                      { key: "submit" as const, label: "Cartas" },
+                      { key: "vote" as const, label: "Votos" },
+                    ]
+                  ).map((f) => (
+                    <div key={f.key} className="space-y-1">
+                      <Label htmlFor={`t-${f.key}`} className="text-xs text-muted-foreground">
+                        {f.label} (s)
+                      </Label>
+                      <Input
+                        id={`t-${f.key}`}
+                        type="number"
+                        min={f.key === "vote" ? 10 : 15}
+                        max={600}
+                        value={times[f.key]}
+                        onChange={(e) =>
+                          setTimes((prev) => ({ ...prev, [f.key]: Number(e.target.value) || 0 }))
+                        }
+                        className="text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </fieldset>
           </div>
+
           <Button onClick={createRoom} disabled={busy} className="mt-6 w-full rounded-full coarse:min-h-11">
             Crear sala nueva
           </Button>
