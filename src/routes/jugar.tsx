@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { generateRoomCode } from "@/lib/game";
+import { clampPhaseSeconds, DEFAULT_PHASE_SECONDS, generateRoomCode } from "@/lib/game";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,13 +27,6 @@ export const Route = createFileRoute("/jugar")({
   component: Jugar,
 });
 
-const DEFAULT_TIMES = { clue: 80, submit: 60, vote: 40 } as const;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(Math.round(value) || min, min), max);
-}
-
-
 function Jugar() {
   const navigate = useNavigate();
   const { user, loading, displayName, signOut } = useAuth();
@@ -41,7 +34,7 @@ function Jugar() {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"shared" | "personal">("shared");
   const [timersEnabled, setTimersEnabled] = useState(true);
-  const [times, setTimes] = useState({ ...DEFAULT_TIMES });
+  const [times, setTimes] = useState({ ...DEFAULT_PHASE_SECONDS });
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -59,9 +52,9 @@ function Jugar() {
           host_id: user.id,
           mode,
           timers_enabled: timersEnabled,
-          clue_seconds: clamp(times.clue, 15, 600),
-          submit_seconds: clamp(times.submit, 15, 600),
-          vote_seconds: clamp(times.vote, 10, 600),
+          clue_seconds: clampPhaseSeconds("clue", times.clue),
+          submit_seconds: clampPhaseSeconds("submit", times.submit),
+          vote_seconds: clampPhaseSeconds("vote", times.vote),
         })
         .select("id, code")
         .single();
@@ -181,7 +174,7 @@ function Jugar() {
                   {
                     value: true,
                     title: "Con temporizadores",
-                    desc: "Cada fase tiene su tiempo. Si todos terminan antes, se avanza al instante.",
+                    desc: `Pista ${DEFAULT_PHASE_SECONDS.clue}s, cartas ${DEFAULT_PHASE_SECONDS.submit}s y votos ${DEFAULT_PHASE_SECONDS.vote}s. Si todos terminan antes, se avanza al instante.`,
                   },
                   {
                     value: false,
@@ -214,9 +207,9 @@ function Jugar() {
                 <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border p-3">
                   {(
                     [
-                      { key: "clue" as const, label: "Pista" },
-                      { key: "submit" as const, label: "Cartas" },
-                      { key: "vote" as const, label: "Votos" },
+                      { key: "clue" as const, label: "Pista (Fase 1)" },
+                      { key: "submit" as const, label: "Cartas (Fase 2)" },
+                      { key: "vote" as const, label: "Votos (Fase 3)" },
                     ]
                   ).map((f) => (
                     <div key={f.key} className="space-y-1">

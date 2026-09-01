@@ -256,6 +256,7 @@ export type Database = {
           clue: string | null
           clue_at: string | null
           clue_auto: boolean
+          clue_draft: string | null
           created_at: string
           id: string
           number: number
@@ -269,6 +270,7 @@ export type Database = {
           clue?: string | null
           clue_at?: string | null
           clue_auto?: boolean
+          clue_draft?: string | null
           created_at?: string
           id?: string
           number: number
@@ -282,6 +284,7 @@ export type Database = {
           clue?: string | null
           clue_at?: string | null
           clue_auto?: boolean
+          clue_draft?: string | null
           created_at?: string
           id?: string
           number?: number
@@ -410,6 +413,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_round_phase: {
+        Args: { _auto_clue?: string | null; _force?: boolean; _room_id: string }
+        Returns: string
+      }
       deal_shared_hands: {
         Args: { _hand_size?: number; _room_id: string }
         Returns: undefined

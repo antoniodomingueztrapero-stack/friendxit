@@ -9,6 +9,30 @@ export type Vote = {
   submission_id: string;
 };
 
+/** Duraciones por defecto (segundos) cuando el anfitrión elige partida con temporizadores. */
+export const DEFAULT_PHASE_SECONDS = { clue: 70, submit: 50, vote: 40 } as const;
+
+export function clampPhaseSeconds(phase: "clue" | "submit" | "vote", value: number) {
+  const min = phase === "vote" ? 10 : 15;
+  return Math.min(Math.max(Math.round(value) || min, min), 600);
+}
+
+export function phaseSeconds(
+  phase: string,
+  room: { clue_seconds: number; submit_seconds: number; vote_seconds: number },
+): number | null {
+  switch (phase) {
+    case "clue":
+      return room.clue_seconds;
+    case "submit":
+      return room.submit_seconds;
+    case "vote":
+      return room.vote_seconds;
+    default:
+      return null;
+  }
+}
+
 export function generateRoomCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";

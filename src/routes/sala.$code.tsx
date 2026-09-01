@@ -15,7 +15,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { computeScores, phaseLabel } from "@/lib/game";
+import {
+  clampPhaseSeconds,
+  computeScores,
+  phaseLabel,
+  phaseSeconds,
+} from "@/lib/game";
 import { autoClue } from "@/lib/clue";
 import { SignedImage } from "@/components/SignedImage";
 import { ScoreBoard, type ScoreRow } from "@/components/ScoreBoard";
@@ -30,6 +35,7 @@ import {
 } from "@/components/CardReactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { confettiSubtle, sfxReveal } from "@/lib/fx";
 import { PlayerIdentityDialog } from "@/components/PlayerIdentityDialog";
@@ -82,6 +88,7 @@ type Round = {
   phase_started_at: string | null;
   vote_at: string | null;
   clue_auto: boolean;
+  clue_draft: string | null;
 };
 
 type Card = { id: string; image_path: string; cardId?: string | null };
@@ -145,7 +152,9 @@ function Sala() {
   const discardsUsed = players.find((p) => p.user_id === user?.id)?.discards_used ?? 0;
   const discardsLeft = Math.max(MAX_DISCARDS - discardsUsed, 0);
   const canDiscard = !!isShared && room?.status === "playing" && discardsLeft > 0;
-
+  const advancingRef = useRef(false);
+  const autoDoneKey = useRef("");
+  const advancePhaseRef = useRef<(opts: { force: boolean }) => Promise<void>>(async () => {});
 
   const nameOf = useCallback(
     (id: string) => players.find((p) => p.user_id === id)?.name ?? "Jugador",
@@ -272,7 +281,7 @@ function Sala() {
     const { data: roundRow } = await supabase
       .from("rounds")
       .select(
-        "id, number, storyteller_id, clue, clue_at, phase, phase_started_at, vote_at, clue_auto",
+        "id, number, storyteller_id, clue, clue_at, phase, phase_started_at, vote_at, clue_auto, clue_draft",
       )
       .eq("room_id", roomRow.id)
       .order("number", { ascending: false })
@@ -415,6 +424,71 @@ function Sala() {
       void supabase.removeChannel(channel);
     };
   }, [room, load]);
+
+  // Borrador de pista: si se agota el tiempo, se completa a partir de lo escrito.
+  useEffect(() => {
+    if (!round || !isStoryteller || round.phase !== "clue") return;
+    const handle = window.setTimeout(() => {
+      void supabase.from("rounds").update({ clue_draft: clue }).eq("id", round.id);
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [clue, isStoryteller, round]);
+
+  useEffect(() => {
+    if (round?.phase === "clue") setClue(round.clue_draft ?? "");
+    else setClue("");
+    // Intencionado: no depender de clue_draft para no pisar lo que el narrador está escribiendo.
+  }, [round?.id, round?.phase]);
+
+  const timerLimit = room && round ? phaseSeconds(round.phase, room) : null;
+
+  // Temporizador: al expirar, cualquier cliente intenta avanzar (el primero gana).
+  useEffect(() => {
+    if (!room?.timers_enabled || room.status !== "playing" || !round) return;
+    if (timerLimit == null) return;
+    const left = remainingSeconds(round.phase_started_at, timerLimit) ?? 0;
+    const fire = () => void advancePhaseRef.current({ force: false });
+    if (left <= 0) {
+      fire();
+      return;
+    }
+    const id = window.setTimeout(fire, left * 1000);
+    return () => window.clearTimeout(id);
+  }, [
+    room?.id,
+    room?.timers_enabled,
+    room?.status,
+    round?.id,
+    round?.phase,
+    round?.phase_started_at,
+    timerLimit,
+  ]);
+
+  // Si todos han terminado su tarea, se avanza sin esperar al contador (solo con temporizadores).
+  useEffect(() => {
+    if (!room?.timers_enabled || room.status !== "playing" || !round) return;
+    if (players.length < 3) return;
+    const submitted = submissions.length === players.length;
+    const voted = votes.length >= players.length - 1;
+    if (round.phase === "submit" && submitted) {
+      const key = `${round.id}:submit:all`;
+      if (autoDoneKey.current === key) return;
+      autoDoneKey.current = key;
+      void goToVoting();
+    } else if (round.phase === "vote" && voted) {
+      const key = `${round.id}:vote:all`;
+      if (autoDoneKey.current === key) return;
+      autoDoneKey.current = key;
+      void reveal();
+    }
+  }, [
+    room?.timers_enabled,
+    room?.status,
+    round,
+    players.length,
+    submissions.length,
+    votes.length,
+  ]);
 
   const shuffled = useMemo(() => {
     return [...submissions].sort((a, b) => a.id.localeCompare(b.id));
@@ -654,63 +728,101 @@ function Sala() {
 
   async function goToVoting() {
     if (!round) return;
-    setBusy(true);
-    try {
-      const now = new Date().toISOString();
-      await supabase
-        .from("rounds")
-        .update({ phase: "vote", vote_at: now, phase_started_at: now })
-        .eq("id", round.id);
-      await load();
-    } finally {
-      setBusy(false);
-    }
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from("rounds")
+      .update({ phase: "vote", vote_at: now, phase_started_at: now })
+      .eq("id", round.id)
+      .eq("phase", "submit")
+      .select("id");
+    if (data?.length) await load();
   }
 
   async function reveal() {
     if (!round || !room || round.phase !== "vote") return;
-    setBusy(true);
+    const deltas = computeScores(
+      submissions,
+      votes,
+      round.storyteller_id,
+      players.map((p) => p.user_id),
+      { clueAuto: round.clue_auto },
+    );
+    // La puntuación nunca baja de 0: las penalizaciones se recortan.
+    const finalDelta: Record<string, number> = {};
+    for (const p of players) {
+      const raw = deltas[p.user_id] ?? 0;
+      finalDelta[p.user_id] = Math.max(p.score + raw, 0) - p.score;
+    }
+    const rows = players.map((p) => ({
+      round_id: round.id,
+      room_id: room.id,
+      player_id: p.user_id,
+      points: finalDelta[p.user_id] ?? 0,
+      total_after: p.score + (finalDelta[p.user_id] ?? 0),
+    }));
+    await supabase.from("round_scores").upsert(rows, { onConflict: "round_id,player_id" });
+    for (const p of players) {
+      const total = rows.find((r) => r.player_id === p.user_id)?.total_after ?? p.score;
+      if (total !== p.score) {
+        await supabase
+          .from("room_players")
+          .update({ score: total })
+          .eq("room_id", room.id)
+          .eq("user_id", p.user_id);
+      }
+    }
+    await supabase
+      .from("rounds")
+      .update({ phase: "reveal", phase_started_at: new Date().toISOString() })
+      .eq("id", round.id)
+      .eq("phase", "vote");
+    await load();
+  }
+
+  async function advancePhase(opts: { force: boolean }) {
+    if (!room || !round || room.status !== "playing") return;
+    if (round.phase === "reveal") return;
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    if (opts.force) setBusy(true);
     try {
-      const deltas = computeScores(
-        submissions,
-        votes,
-        round.storyteller_id,
-        players.map((p) => p.user_id),
-        { clueAuto: round.clue_auto },
-      );
-      // La puntuación nunca baja de 0: las penalizaciones se recortan.
-      const finalDelta: Record<string, number> = {};
-      for (const p of players) {
-        const raw = deltas[p.user_id] ?? 0;
-        finalDelta[p.user_id] = Math.max(p.score + raw, 0) - p.score;
+      if (round.phase === "vote") {
+        await reveal();
+        return;
       }
-      const rows = players.map((p) => ({
-        round_id: round.id,
-        room_id: room.id,
-        player_id: p.user_id,
-        points: finalDelta[p.user_id] ?? 0,
-        total_after: p.score + (finalDelta[p.user_id] ?? 0),
-      }));
-      await supabase.from("round_scores").upsert(rows, { onConflict: "round_id,player_id" });
-      for (const p of players) {
-        const delta = finalDelta[p.user_id] ?? 0;
-        if (delta !== 0) {
-          await supabase
-            .from("room_players")
-            .update({ score: p.score + delta })
-            .eq("room_id", room.id)
-            .eq("user_id", p.user_id);
+      const autoText = isStoryteller ? autoClue(clue) : null;
+      const { data, error } = await supabase.rpc("advance_round_phase", {
+        _room_id: room.id,
+        _force: opts.force,
+        _auto_clue: autoText,
+      });
+      if (error) {
+        if (opts.force) {
+          toast.error(error.message || "No se ha podido avanzar de fase");
         }
+        return;
       }
-      await supabase
-        .from("rounds")
-        .update({ phase: "reveal", phase_started_at: new Date().toISOString() })
-        .eq("id", round.id);
+      if (data === "submit" && !opts.force) {
+        toast.info("Se agotó el tiempo: pista y carta automáticas (−1 punto al narrador).");
+      }
+      if (data === "vote" && !opts.force) {
+        toast.info("Se agotó el tiempo: las cartas que faltaban se han elegido al azar.");
+      }
+      if (data === "reveal-pending") {
+        await reveal();
+        return;
+      }
       await load();
+    } catch (err) {
+      if (opts.force) {
+        toast.error(err instanceof Error ? err.message : "No se ha podido avanzar de fase");
+      }
     } finally {
-      setBusy(false);
+      advancingRef.current = false;
+      if (opts.force) setBusy(false);
     }
   }
+  advancePhaseRef.current = advancePhase;
 
 
   async function nextRound() {
