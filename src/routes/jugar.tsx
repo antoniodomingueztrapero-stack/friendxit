@@ -29,6 +29,11 @@ export const Route = createFileRoute("/jugar")({
 
 const DEFAULT_TIMES = { clue: 80, submit: 60, vote: 40 } as const;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(Math.round(value) || min, min), max);
+}
+
+
 function Jugar() {
   const navigate = useNavigate();
   const { user, loading, displayName, signOut } = useAuth();
