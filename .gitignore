@@ -30,3 +30,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# La ilustracion de portada vive en src/assets; en diseno/ solo van notas.
+diseno/*.jpg
