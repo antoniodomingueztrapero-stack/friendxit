@@ -18,10 +18,13 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="surface-panel max-w-md p-10 text-center">
-        <h1 className="text-gradient-gold text-6xl">404</h1>
-        <h2 className="mt-4 text-xl font-semibold">Esta carta no existe</h2>
+        <h1 className="font-display text-7xl font-extrabold">
+          <span className="text-gradient-gold">404</span>
+        </h1>
+        <h2 className="mt-4 text-xl font-extrabold">Esta carta no está en la baraja</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          La página que buscas se ha desvanecido como un sueño.
+          O el enlace está mal escrito, o alguien ha barajado de más. Vuelve al inicio y montamos
+          otra partida.
         </p>
         <div className="mt-6">
           <Link
@@ -46,9 +49,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="surface-panel max-w-md p-10 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">Algo se ha torcido</h1>
+        <h1 className="text-xl font-extrabold tracking-tight">Se ha caído la mesa</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          No hemos podido cargar esta página. Prueba de nuevo o vuelve al inicio.
+          No hemos podido cargar esta página. Reintenta o vuelve al inicio: la partida sigue
+          guardada.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -92,7 +96,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Caveat:wght@500..700&family=Figtree:wght@400..800&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],

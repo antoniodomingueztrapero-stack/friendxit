@@ -1320,6 +1320,7 @@ function Sala() {
               storytellerName={nameOf(round.storyteller_id)}
               storytellerAvatar={players.find((p) => p.user_id === round.storyteller_id)?.avatar}
               startedAt={round.phase === "submit" ? round.clue_at : null}
+              seconds={round.phase === "submit" ? room.submit_seconds : null}
             />
           )}
 
@@ -1570,6 +1571,7 @@ function Sala() {
                 storytellerName={nameOf(round.storyteller_id)}
                 storytellerAvatar={players.find((p) => p.user_id === round.storyteller_id)?.avatar}
                 startedAt={round.phase === "submit" ? round.clue_at : null}
+                seconds={round.phase === "submit" ? room.submit_seconds : null}
               />
             ) : null
           }
