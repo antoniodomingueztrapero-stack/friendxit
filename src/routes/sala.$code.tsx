@@ -22,13 +22,15 @@ import { ScoreBoard, type ScoreRow } from "@/components/ScoreBoard";
 import { Podium } from "@/components/Podium";
 import { HandCarousel } from "@/components/HandCarousel";
 import { ClueBanner } from "@/components/ClueBanner";
+import { StorytellerMoment, WaitingForClue } from "@/components/StorytellerMoment";
+import { RoundReveal } from "@/components/RoundReveal";
 import { PhaseTimer, remainingSeconds } from "@/components/PhaseTimer";
 import { ReactionOverlay, ReactionPicker, useRoomReactions } from "@/components/CardReactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { confettiSubtle, sfxReveal } from "@/lib/fx";
+import { confettiSubtle, sfxClick, sfxReveal } from "@/lib/fx";
 import { PlayerIdentityDialog } from "@/components/PlayerIdentityDialog";
 import { roomInviteUrl } from "@/lib/site";
 
@@ -118,6 +120,7 @@ function Sala() {
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [identityDone, setIdentityDone] = useState(false);
   const [pendingVote, setPendingVote] = useState<string | null>(null);
+  const [revealSettled, setRevealSettled] = useState(false);
   const { bursts, react } = useRoomReactions(room?.id);
 
   const prevStatus = useRef<string | null>(null);
@@ -471,6 +474,11 @@ function Sala() {
       void reveal();
     }
   }, [room?.timers_enabled, room?.status, round, players.length, submissions.length, votes.length]);
+
+  // Cada ronda (o cambio de fase) vuelve a empezar la revelación con suspense.
+  useEffect(() => {
+    setRevealSettled(false);
+  }, [round?.id, round?.phase]);
 
   const shuffled = useMemo(() => {
     return [...submissions].sort((a, b) => a.id.localeCompare(b.id));
@@ -967,6 +975,7 @@ function Sala() {
     };
   });
   const gameOver = players.some((p) => p.score >= WIN_SCORE);
+  const myDelta = scoreRows.find((r) => r.id === user?.id)?.delta ?? null;
   const neededPhotos = players.length * 6;
   const canStart = players.length >= 3 && (!isShared || poolTotal >= neededPhotos);
   const startHint =
@@ -1371,21 +1380,31 @@ function Sala() {
 
           {round.phase === "clue" &&
             (isStoryteller ? (
-              <div className="mt-6 flex flex-col items-start gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Eres el narrador: elige una foto {isShared ? "de tu mano" : "de tu galería"} y
-                  escribe la pista.
-                </p>
-                <Button
-                  onClick={() => setCarouselOpen(true)}
-                  className="rounded-full coarse:min-h-11"
-                >
-                  Elegir carta y escribir pista
-                </Button>
-              </div>
+              <StorytellerMoment
+                name={me?.name ?? "Tú"}
+                avatar={me?.avatar ?? null}
+                startedAt={round.phase_started_at}
+                seconds={room.timers_enabled ? room.clue_seconds : null}
+                onPick={() => setCarouselOpen(true)}
+              />
             ) : (
-              <p className="mt-6 text-sm text-muted-foreground">Esperando la pista del narrador…</p>
+              <WaitingForClue
+                name={nameOf(round.storyteller_id)}
+                avatar={players.find((p) => p.user_id === round.storyteller_id)?.avatar}
+                startedAt={round.phase_started_at}
+                seconds={room.timers_enabled ? room.clue_seconds : null}
+              />
             ))}
+
+          {room.timers_enabled && timerLimit != null && round.phase !== "clue" && (
+            <PhaseTimer
+              className="mt-4"
+              startedAt={round.phase_started_at}
+              seconds={timerLimit}
+              label={phaseLabel(round.phase)}
+              sound
+            />
+          )}
 
           {round.phase === "submit" && (
             <div className="mt-6">
@@ -1424,7 +1443,7 @@ function Sala() {
             </div>
           )}
 
-          {(round.phase === "vote" || round.phase === "reveal") && (
+          {round.phase === "vote" && (
             <div className="mt-6">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                 {shuffled.map((s) => {
@@ -1436,7 +1455,10 @@ function Sala() {
                       <button
                         type="button"
                         disabled={!canVote || busy}
-                        onClick={() => setPendingVote(s.id)}
+                        onClick={() => {
+                          sfxClick();
+                          setPendingVote(s.id);
+                        }}
                         aria-pressed={pendingVote === s.id}
                         className={cn(
                           "card-tile relative block aspect-[2/3] w-full",
@@ -1464,14 +1486,6 @@ function Sala() {
                         className="absolute bottom-2 right-2 z-20"
                         onReact={(emoji) => react(s.id, emoji)}
                       />
-                      {round.phase === "reveal" && (
-                        <p className="mt-1 break-words text-xs text-muted-foreground">
-                          {s.is_storyteller ? "★ " : ""}
-                          {nameOf(s.player_id)}
-                          {cardVotes.length > 0 &&
-                            ` · ${cardVotes.map((v) => nameOf(v.voter_id)).join(", ")}`}
-                        </p>
-                      )}
                     </div>
                   );
                 })}
@@ -1501,34 +1515,6 @@ function Sala() {
                 </Button>
               )}
 
-              {round.phase === "reveal" && storySub && (
-                <p className="mt-4 text-sm">
-                  La carta del narrador era la marcada con ★ de{" "}
-                  <span className="text-primary">{nameOf(storySub.player_id)}</span>.
-                </p>
-              )}
-
-              {round.phase === "reveal" && (
-                <div className="mt-6 rounded-2xl border border-border bg-background/40 p-4 sm:p-5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="font-display text-lg sm:text-xl">
-                      Clasificación tras la ronda {round.number}
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                      Objetivo: {WIN_SCORE} puntos
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <ScoreBoard rows={scoreRows} goal={WIN_SCORE} />
-                  </div>
-                  {gameOver && (
-                    <p className="mt-3 text-center text-sm text-primary">
-                      ¡Alguien ha alcanzado los {WIN_SCORE} puntos! La partida termina aquí.
-                    </p>
-                  )}
-                </div>
-              )}
-
               {isHost && round.phase === "vote" && (
                 <Button
                   onClick={reveal}
@@ -1538,20 +1524,63 @@ function Sala() {
                   Revelar y puntuar
                 </Button>
               )}
-              {isHost && round.phase === "reveal" && (
+            </div>
+          )}
+
+          {round.phase === "reveal" && (
+            <RoundReveal
+              roundId={round.id}
+              roundNumber={round.number}
+              submissions={submissions}
+              votes={votes}
+              players={players.map((p) => ({
+                user_id: p.user_id,
+                name: p.name,
+                avatar: p.avatar,
+              }))}
+              storytellerId={round.storyteller_id}
+              myId={user?.id}
+              myDelta={myDelta}
+              onSettled={() => setRevealSettled(true)}
+              scoresNode={
+                <div className="mt-4 rounded-2xl border-2 border-ink bg-background/40 p-4 shadow-ink-sm sm:p-5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="font-display text-lg font-extrabold sm:text-xl">
+                      Clasificación tras la ronda {round.number}
+                    </h3>
+                    <span className="text-xs font-bold text-muted-foreground">
+                      Objetivo: {WIN_SCORE} puntos
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <ScoreBoard rows={scoreRows} goal={WIN_SCORE} />
+                  </div>
+                  {gameOver && (
+                    <p className="mt-3 text-center text-sm font-bold text-primary">
+                      ¡Alguien ha alcanzado los {WIN_SCORE} puntos! La partida termina aquí.
+                    </p>
+                  )}
+                </div>
+              }
+            />
+          )}
+
+          {/* Pasar de ronda: solo cuando el suspense ha terminado */}
+          {round.phase === "reveal" && revealSettled && (
+            <div className="mt-6 text-center">
+              {isHost ? (
                 <Button
                   onClick={nextRound}
                   disabled={busy}
-                  className="mt-4 w-full rounded-full sm:w-auto coarse:min-h-11"
+                  className="w-full rounded-full border-2 border-ink py-4 text-base font-extrabold shadow-ink-sm sm:w-auto sm:px-8 coarse:min-h-12"
                 >
                   {gameOver ? "Ver clasificación final" : "Siguiente ronda"}
                 </Button>
-              )}
-              {!isHost && round.phase === "reveal" && (
-                <p className="mt-4 text-sm text-muted-foreground">
+              ) : (
+                <p className="font-hand text-2xl text-muted-foreground">
                   {gameOver
                     ? "Esperando a que el anfitrión muestre la clasificación final…"
-                    : "Esperando a que el anfitrión inicie la siguiente ronda…"}
+                    : "Esperando a que el anfitrión empiece la siguiente ronda…"}
                 </p>
               )}
             </div>

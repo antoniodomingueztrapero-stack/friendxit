@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sfxTickTock } from "@/lib/fx";
 
 type Props = {
   /** Momento (ISO) en que arrancó la fase: el contador es igual para todos. */
@@ -8,6 +9,8 @@ type Props = {
   /** Duración de la fase en segundos. */
   seconds: number;
   label?: string;
+  /** Marca cada segundo cuando queda poco tiempo (últimos 10 s). */
+  sound?: boolean;
   className?: string;
 };
 
@@ -24,33 +27,46 @@ export function remainingSeconds(startedAt: string | null | undefined, seconds: 
 }
 
 /** Cuenta atrás sincronizada por servidor para la fase actual. */
-export function PhaseTimer({ startedAt, seconds, label, className }: Props) {
+export function PhaseTimer({ startedAt, seconds, label, sound = false, className }: Props) {
   const [left, setLeft] = useState(() => remainingSeconds(startedAt, seconds) ?? seconds);
+  const lastTicked = useRef<number | null>(null);
 
   useEffect(() => {
-    const tick = () => setLeft(remainingSeconds(startedAt, seconds) ?? seconds);
+    const tick = () => {
+      const next = remainingSeconds(startedAt, seconds) ?? seconds;
+      setLeft(next);
+      if (sound && next <= 10 && next > 0 && lastTicked.current !== next) {
+        lastTicked.current = next;
+        sfxTickTock(next <= 5);
+      }
+    };
     tick();
     const id = window.setInterval(tick, 500);
     return () => window.clearInterval(id);
-  }, [startedAt, seconds]);
+  }, [startedAt, seconds, sound]);
 
-  const urgent = left <= 10;
+  const urgent = left <= 10 && left > 0;
   const pct = Math.max(0, Math.min(100, (left / Math.max(seconds, 1)) * 100));
 
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl border border-border bg-card/70 px-3 py-2",
-        urgent && "border-destructive/60",
+        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border-2 border-ink bg-card px-3 py-2 shadow-ink-sm",
         className,
       )}
       role="timer"
       aria-live="off"
     >
-      <Timer className={cn("h-4 w-4 shrink-0 text-primary", urgent && "text-destructive")} />
-      <div className="min-w-0 flex-1">
-        {label && <p className="truncate text-xs text-muted-foreground">{label}</p>}
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+      <Timer
+        className={cn("h-5 w-5 shrink-0 text-primary", urgent && "animate-pulse text-destructive")}
+      />
+      <div className="min-w-0">
+        {label && (
+          <p className="truncate text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
+            {label}
+          </p>
+        )}
+        <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full border-2 border-ink bg-muted">
           <div
             className={cn(
               "h-full rounded-full bg-primary transition-[width] duration-500 ease-linear",
@@ -62,8 +78,10 @@ export function PhaseTimer({ startedAt, seconds, label, className }: Props) {
       </div>
       <span
         className={cn(
-          "shrink-0 font-display text-base tabular-nums",
-          urgent ? "text-destructive" : "text-primary",
+          "font-display shrink-0 rounded-full border-2 border-ink px-3 py-0.5 text-lg font-extrabold tabular-nums",
+          urgent
+            ? "bg-destructive text-destructive-foreground"
+            : "bg-accent text-accent-foreground",
         )}
       >
         {fmt(left)}
