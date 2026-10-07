@@ -15,12 +15,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  clampPhaseSeconds,
-  computeScores,
-  phaseLabel,
-  phaseSeconds,
-} from "@/lib/game";
+import { clampPhaseSeconds, computeScores, phaseLabel, phaseSeconds } from "@/lib/game";
 import { autoClue } from "@/lib/clue";
 import { SignedImage } from "@/components/SignedImage";
 import { ScoreBoard, type ScoreRow } from "@/components/ScoreBoard";
@@ -28,11 +23,7 @@ import { Podium } from "@/components/Podium";
 import { HandCarousel } from "@/components/HandCarousel";
 import { ClueBanner } from "@/components/ClueBanner";
 import { PhaseTimer, remainingSeconds } from "@/components/PhaseTimer";
-import {
-  ReactionOverlay,
-  ReactionPicker,
-  useRoomReactions,
-} from "@/components/CardReactions";
+import { ReactionOverlay, ReactionPicker, useRoomReactions } from "@/components/CardReactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,9 +31,6 @@ import { cn } from "@/lib/utils";
 import { confettiSubtle, sfxReveal } from "@/lib/fx";
 import { PlayerIdentityDialog } from "@/components/PlayerIdentityDialog";
 import { roomInviteUrl } from "@/lib/site";
-
-
-
 
 export const Route = createFileRoute("/sala/$code")({
   head: () => ({
@@ -277,7 +265,6 @@ function Sala() {
       setPoolTotal(0);
     }
 
-
     const { data: roundRow } = await supabase
       .from("rounds")
       .select(
@@ -320,7 +307,6 @@ function Sala() {
       navigate({ to: "/auth", search: { sala: code.toUpperCase() }, replace: true });
   }, [authLoading, user, navigate, code]);
 
-
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
@@ -360,7 +346,10 @@ function Sala() {
     if (!user) return;
     let cancelled = false;
     void (async () => {
-      const { data: deckRows } = await supabase.from("decks").select("id, name").order("created_at");
+      const { data: deckRows } = await supabase
+        .from("decks")
+        .select("id, name")
+        .order("created_at");
       const { data: deckCardRows } = await supabase.from("deck_cards").select("deck_id");
       if (cancelled) return;
       setDecks(
@@ -481,14 +470,7 @@ function Sala() {
       autoDoneKey.current = key;
       void reveal();
     }
-  }, [
-    room?.timers_enabled,
-    room?.status,
-    round,
-    players.length,
-    submissions.length,
-    votes.length,
-  ]);
+  }, [room?.timers_enabled, room?.status, round, players.length, submissions.length, votes.length]);
 
   const shuffled = useMemo(() => {
     return [...submissions].sort((a, b) => a.id.localeCompare(b.id));
@@ -521,7 +503,10 @@ function Sala() {
   }
 
   async function removeCard(card: Card) {
-    await supabase.from("cards").delete().eq("id", card.cardId ?? card.id);
+    await supabase
+      .from("cards")
+      .delete()
+      .eq("id", card.cardId ?? card.id);
     // Las cartas que vienen de un mazo guardado no se borran del almacenamiento:
     // siguen perteneciendo al mazo del jugador.
     if (!card.image_path.includes("/mazos/")) {
@@ -529,7 +514,6 @@ function Sala() {
     }
     await load();
   }
-
 
   async function discardCard(card: Card) {
     if (!room || !user || !card.cardId) return;
@@ -674,7 +658,6 @@ function Sala() {
       setBusy(false);
     }
   }
-
 
   async function submitCard(card: Card) {
     if (!room || !round || !user) return;
@@ -824,7 +807,6 @@ function Sala() {
   }
   advancePhaseRef.current = advancePhase;
 
-
   async function nextRound() {
     if (!round || !room) return;
     // La ronda ya ha terminado y los puntos están sumados: ahora se comprueba el final.
@@ -891,8 +873,6 @@ function Sala() {
     }
   }
 
-
-
   if (authLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -926,8 +906,8 @@ function Sala() {
         <div className="surface-panel max-w-md p-8 text-center">
           <h1 className="text-2xl">La partida ya ha comenzado</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Esta sala está cerrada: solo pueden participar los jugadores que entraron antes de
-            que el anfitrión iniciara la partida.
+            Esta sala está cerrada: solo pueden participar los jugadores que entraron antes de que
+            el anfitrión iniciara la partida.
           </p>
           <Link
             to="/jugar"
@@ -964,6 +944,11 @@ function Sala() {
     }
   }
 
+  const sectionTitle = isShared
+    ? room?.status === "lobby"
+      ? "Tus fotos"
+      : "Tus cartas"
+    : "Tu galería";
   const votersNeeded = players.length - 1;
   const allSubmitted = submissions.length === players.length;
   const allVoted = votes.length >= votersNeeded;
@@ -982,7 +967,14 @@ function Sala() {
     };
   });
   const gameOver = players.some((p) => p.score >= WIN_SCORE);
-
+  const neededPhotos = players.length * 6;
+  const canStart = players.length >= 3 && (!isShared || poolTotal >= neededPhotos);
+  const startHint =
+    players.length < 3
+      ? `Faltan ${3 - players.length} jugadores (mínimo 3)`
+      : isShared && poolTotal < neededPhotos
+        ? `Faltan fotos: hay ${poolTotal} en el mazo y hacen falta ${neededPhotos}`
+        : null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-24">
@@ -1003,126 +995,144 @@ function Sala() {
             Friend<span className="text-gradient-gold">xit</span>
           </Link>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={copyCode}
-            className="surface-panel flex shrink-0 items-center gap-2 px-3 py-2 text-sm sm:px-4"
-            title="Copiar código"
-          >
-            <span className="hidden text-muted-foreground sm:inline">Código</span>
-            <span className="font-display text-base tracking-[0.2em] text-primary sm:text-lg sm:tracking-[0.3em]">
-              {room.code}
-            </span>
-            {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={shareInvite}
-            className="surface-panel flex shrink-0 items-center gap-2 px-3 py-2 text-sm coarse:min-h-11"
-            title="Compartir enlace de invitación"
-          >
-            <Share2 className="h-4 w-4 text-primary" />
-            <span className="hidden sm:inline">Invitar</span>
-          </button>
-        </div>
-
+        {room.status !== "lobby" && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={copyCode}
+              className="surface-panel flex shrink-0 items-center gap-2 px-3 py-2 text-sm sm:px-4"
+              title="Copiar código"
+            >
+              <span className="hidden text-muted-foreground sm:inline">Código</span>
+              <span className="font-display text-base tracking-[0.2em] text-primary sm:text-lg sm:tracking-[0.3em]">
+                {room.code}
+              </span>
+              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={shareInvite}
+              className="surface-panel flex shrink-0 items-center gap-2 px-3 py-2 text-sm coarse:min-h-11"
+              title="Compartir enlace de invitación"
+            >
+              <Share2 className="h-4 w-4 text-primary" />
+              <span className="hidden sm:inline">Invitar</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Marcador */}
-      <div className="mt-6 flex flex-wrap gap-2">
-        {players.map((p) => (
-          <div
-            key={p.user_id}
-            className={cn(
-              "surface-panel flex min-w-0 items-center gap-2 px-3 py-2 text-sm",
-              round?.storyteller_id === p.user_id && "ring-1 ring-primary",
-            )}
-          >
-            {room.host_id === p.user_id && <Crown className="h-3.5 w-3.5 shrink-0 text-primary" />}
-            <span className="min-w-0 truncate">
-              {labelOf(p)}
-            </span>
-            <span className="shrink-0 font-display text-primary">{p.score}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Resumen de la sala (antes de empezar) */}
-      {room.status === "lobby" && (
-        <section className="surface-panel mt-6 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl">Resumen de la sala</h2>
-            <span className="flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-              Esperando a que empiece la partida
-            </span>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Modo de juego</p>
-              <p className="mt-1 flex items-center gap-2 font-display text-lg">
-                <Layers className="h-4 w-4 text-primary" />
-                {isShared ? "Mazo común" : "Personal"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isShared
-                  ? "Todos aportan fotos y se reparten 6 al azar a cada uno."
-                  : "Cada jugador juega con las fotos de su propia galería."}
-              </p>
+      {room.status !== "lobby" && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {players.map((p) => (
+            <div
+              key={p.user_id}
+              className={cn(
+                "surface-panel flex min-w-0 items-center gap-2 px-3 py-2 text-sm",
+                round?.storyteller_id === p.user_id && "ring-1 ring-primary",
+              )}
+            >
+              {room.host_id === p.user_id && (
+                <Crown className="h-3.5 w-3.5 shrink-0 text-primary" />
+              )}
+              <span className="min-w-0 truncate">{labelOf(p)}</span>
+              <span className="shrink-0 font-display text-primary">{p.score}</span>
             </div>
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Jugadores conectados
-              </p>
-              <p className="mt-1 font-display text-lg">
-                {players.length} {players.length === 1 ? "jugador" : "jugadores"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {players.length < 3
-                  ? `Faltan ${3 - players.length} para poder empezar (mínimo 3).`
-                  : "¡Ya sois suficientes para jugar!"}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Estado</p>
-              <p className="mt-1 font-display text-lg">En el vestíbulo</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isHost
-                  ? "Cuando estéis listos, pulsa «Empezar partida»."
-                  : `El anfitrión (${nameOf(room.host_id)}) iniciará la partida.`}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {players.map((p) => (
-              <span
-                key={p.user_id}
-                className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-sm"
-              >
-                {room.host_id === p.user_id && <Crown className="h-3 w-3 text-primary" />}
-                {labelOf(p)}
-              </span>
-            ))}
-          </div>
-        </section>
+          ))}
+        </div>
       )}
 
+      {/* Código para invitar + quién está en la mesa */}
+      {room.status === "lobby" && (
+        <>
+          <section className="mt-7">
+            <div className="surface-panel relative px-5 pt-7 pb-6 text-center sm:px-8">
+              <span className="tape -top-3 left-5 rotate-[-7deg]" aria-hidden />
+              <span className="tape -top-3 right-5 rotate-[6deg]" aria-hidden />
+              <p className="font-hand text-2xl text-muted-foreground">Manda este código al grupo</p>
+              <p className="font-display mt-1 text-5xl font-extrabold tracking-[0.15em] sm:text-7xl sm:tracking-[0.2em]">
+                {room.code}
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <button
+                  onClick={copyCode}
+                  className="flex items-center gap-2 rounded-full border-2 border-ink bg-accent px-5 py-3 font-bold text-accent-foreground shadow-ink-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "¡Copiado!" : "Copiar código"}
+                </button>
+                <button
+                  onClick={shareInvite}
+                  className="flex items-center gap-2 rounded-full border-2 border-ink bg-card px-5 py-3 font-bold shadow-ink-sm transition active:translate-x-[2px] active:translate-y-[2px] active:shadow-none coarse:min-h-11"
+                >
+                  <Share2 className="h-4 w-4 text-primary" />
+                  Invitar
+                </button>
+              </div>
+              <p className="mt-4 text-xs font-bold text-muted-foreground">
+                {isShared
+                  ? "Se juega con un mazo común: entre todos juntáis las fotos."
+                  : "Cada uno juega con las fotos de su galería."}
+              </p>
+            </div>
+          </section>
+
+          <section className="mt-8">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-2xl font-extrabold">En la mesa</h2>
+              <p className="text-sm font-bold text-muted-foreground">
+                {players.length < 3
+                  ? `Faltan ${3 - players.length} para poder empezar`
+                  : "¡Ya se puede jugar!"}
+              </p>
+            </div>
+            <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+              {players.map((p) => (
+                <li
+                  key={p.user_id}
+                  className="surface-panel-sm relative flex flex-col items-center gap-1 px-2 pt-5 pb-3 text-center"
+                >
+                  {room.host_id === p.user_id && (
+                    <span className="absolute -top-2.5 rounded-full border-2 border-ink bg-accent px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-accent-foreground uppercase">
+                      Anfitrión
+                    </span>
+                  )}
+                  <span className="text-4xl leading-none" aria-hidden>
+                    {p.avatar || "🥑"}
+                  </span>
+                  <span className="w-full truncate text-sm font-bold">{p.name}</span>
+                  {p.user_id === user?.id && (
+                    <span className="font-hand text-lg leading-none text-muted-foreground">tú</span>
+                  )}
+                </li>
+              ))}
+              {Array.from({ length: Math.max(0, 3 - players.length) }).map((_, i) => (
+                <li
+                  key={`libre-${i}`}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-ink/30 px-2 py-3 text-center text-muted-foreground"
+                >
+                  <span className="text-3xl leading-none" aria-hidden>
+                    +
+                  </span>
+                  <span className="text-xs font-bold">libre</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
 
       {/* Mano / subida de cartas */}
       <section className={cn("surface-panel mt-6 p-5", room.status === "finished" && "hidden")}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl">
-              {isShared
-                ? room.status === "lobby"
-                  ? "Tus aportaciones al mazo"
-                  : "Tus cartas"
-                : "Tu galería"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {isShared
-                ? "Sube fotos al mazo común. Al empezar recibirás 6 cartas al azar de todo el grupo."
-                : "En cada ronda eliges libremente cualquier foto de tu galería. No hace falta preparar un mazo antes de empezar."}
-            </p>
+            <h2 className="text-2xl font-extrabold">{sectionTitle}</h2>
+            {room.status !== "lobby" && (
+              <p className="text-sm text-muted-foreground">
+                {isShared
+                  ? "Estas son las cartas que te han tocado esta ronda."
+                  : "En cada ronda eliges la foto que quieras de tu galería."}
+              </p>
+            )}
           </div>
           <div className="shrink-0">
             <input
@@ -1150,10 +1160,13 @@ function Sala() {
 
         {isShared && room.status === "lobby" && (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            <span className="text-sm text-muted-foreground">Mazos guardados:</span>
+            <span className="text-sm font-bold text-muted-foreground">Tus mazos:</span>
             {decks.length === 0 ? (
-              <Link to="/mazos" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
-                Crear mi primer mazo
+              <Link
+                to="/mazos"
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Crear un mazo
               </Link>
             ) : (
               <>
@@ -1170,7 +1183,10 @@ function Sala() {
                     <span className="text-muted-foreground">{d.count}</span>
                   </button>
                 ))}
-                <Link to="/mazos" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+                <Link
+                  to="/mazos"
+                  className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                >
                   Gestionar mazos
                 </Link>
               </>
@@ -1184,26 +1200,48 @@ function Sala() {
             <span>
               Tu galería incluye todas las fotos de tus mazos guardados y las que subas aquí.
             </span>
-            <Link to="/mazos" className="font-medium text-primary underline-offset-4 hover:underline">
+            <Link
+              to="/mazos"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
               Gestionar mi galería
             </Link>
           </div>
         )}
 
-        {isShared && (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Mazo común: <span className="text-primary">{poolTotal}</span> fotos sin repartir · tú has
-            aportado <span className="text-primary">{pool.length}</span>. Hacen falta{" "}
-            {players.length * 6} para empezar.
+        {isShared && room.status === "lobby" && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3 text-sm font-bold">
+              <span>Fotos en el mazo</span>
+              <span className="text-primary">
+                {poolTotal} / {neededPhotos}
+              </span>
+            </div>
+            <div className="mt-2 h-3 w-full overflow-hidden rounded-full border-2 border-ink bg-muted">
+              <div
+                className="h-full bg-primary transition-[width] duration-500"
+                style={{
+                  width: `${Math.min(100, (poolTotal / Math.max(neededPhotos, 1)) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs font-semibold text-muted-foreground">
+              Tú has puesto {pool.length}. Con {neededPhotos} fotos se reparten 6 cartas a cada uno.
+            </p>
+          </div>
+        )}
+        {isShared && room.status === "playing" && (
+          <p className="mt-4 text-sm font-semibold text-muted-foreground">
+            Quedan {poolTotal} fotos sin repartir.
           </p>
         )}
 
         {hand.length === 0 ? (
-          <p className="mt-6 text-sm text-muted-foreground">
-            {isShared
-              ? "Todavía no tienes cartas: se reparten cuando el anfitrión empieza la partida."
-              : "Tu galería está vacía. Añade fotos aquí o guárdalas en un mazo para tenerlas siempre disponibles."}
-          </p>
+          room.status === "lobby" && !isShared ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              Tu galería está vacía: añade fotos o carga un mazo guardado.
+            </p>
+          ) : null
         ) : room.status === "playing" ? (
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Button
@@ -1240,7 +1278,11 @@ function Sala() {
             {hand.map((c) => (
               <div key={c.id} className="group relative">
                 <div className="card-tile block aspect-[2/3] w-full">
-                  <SignedImage path={c.image_path} alt="Foto de tu galería" className="h-full w-full" />
+                  <SignedImage
+                    path={c.image_path}
+                    alt="Foto de tu galería"
+                    className="h-full w-full"
+                  />
                 </div>
                 {room.status === "lobby" && !isShared && c.cardId && (
                   <button
@@ -1262,7 +1304,11 @@ function Sala() {
             {pool.map((c) => (
               <div key={c.id} className="group relative">
                 <div className="card-tile block aspect-[2/3] w-full opacity-90">
-                  <SignedImage path={c.image_path} alt="Foto aportada al mazo" className="h-full w-full" />
+                  <SignedImage
+                    path={c.image_path}
+                    alt="Foto aportada al mazo"
+                    className="h-full w-full"
+                  />
                 </div>
                 <button
                   type="button"
@@ -1278,30 +1324,29 @@ function Sala() {
         )}
       </section>
 
-      {/* Lobby */}
+      {/* Empezar */}
       {room.status === "lobby" && (
-        <section className="surface-panel mt-6 p-6 text-center">
-          <h2 className="text-2xl">Sala de espera</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {players.length} jugador{players.length === 1 ? "" : "es"} en la sala. Comparte el
-            código <span className="text-primary">{room.code}</span> para que entren más.
-          </p>
+        <section className="mt-9 text-center">
           {isHost ? (
-            <Button
-              onClick={startGame}
-              disabled={busy || players.length < 3}
-              className="mt-6 w-full rounded-full px-8 sm:w-auto coarse:min-h-11"
-            >
-              Empezar partida
-            </Button>
+            <>
+              <button
+                onClick={startGame}
+                disabled={busy || !canStart}
+                className="font-display w-full rounded-full border-2 border-ink bg-primary px-10 py-5 text-xl font-extrabold text-primary-foreground shadow-ink transition active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-ink coarse:min-h-14 sm:w-auto"
+              >
+                Empezar partida
+              </button>
+              {startHint && (
+                <p className="mt-3 text-sm font-bold text-muted-foreground">{startHint}</p>
+              )}
+            </>
           ) : (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Esperando a que el anfitrión empiece la partida…
+            <p className="font-hand text-2xl text-muted-foreground">
+              Esperando a que {nameOf(room.host_id)} empiece la partida…
             </p>
           )}
         </section>
       )}
-
 
       {/* Partida */}
       {room.status === "playing" && round && (
@@ -1339,9 +1384,7 @@ function Sala() {
                 </Button>
               </div>
             ) : (
-              <p className="mt-6 text-sm text-muted-foreground">
-                Esperando la pista del narrador…
-              </p>
+              <p className="mt-6 text-sm text-muted-foreground">Esperando la pista del narrador…</p>
             ))}
 
           {round.phase === "submit" && (
@@ -1405,7 +1448,11 @@ function Sala() {
                             "ring-2 ring-primary card-tile-active",
                         )}
                       >
-                        <SignedImage path={s.image_path} alt="Carta jugada" className="h-full w-full" />
+                        <SignedImage
+                          path={s.image_path}
+                          alt="Carta jugada"
+                          className="h-full w-full"
+                        />
                         {pendingVote === s.id && !myVote && (
                           <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
                             <Check className="h-4 w-4" />
@@ -1426,7 +1473,6 @@ function Sala() {
                         </p>
                       )}
                     </div>
-
                   );
                 })}
               </div>
@@ -1436,7 +1482,8 @@ function Sala() {
                   Votos: {votes.length}/{votersNeeded}
                   {isStoryteller && " · Tú no votas esta ronda."}
                   {myVote && !isStoryteller && " · Ya has votado."}
-                  {!isStoryteller && !myVote &&
+                  {!isStoryteller &&
+                    !myVote &&
                     (pendingVote
                       ? " · Pulsa «Confirmar voto» para dejarlo definitivo."
                       : " · Toca la carta que creas del narrador para seleccionarla.")}
@@ -1540,7 +1587,6 @@ function Sala() {
         </section>
       )}
 
-
       {/* Carrusel a pantalla completa para revisar/elegir cartas */}
       {carouselOpen && hand.length > 0 && (
         <HandCarousel
@@ -1560,7 +1606,9 @@ function Sala() {
             else await submitCard(card);
             return true;
           }}
-          discardsLeft={canDiscard || (isShared && room.status === "playing") ? discardsLeft : undefined}
+          discardsLeft={
+            canDiscard || (isShared && room.status === "playing") ? discardsLeft : undefined
+          }
           maxDiscards={MAX_DISCARDS}
           onDiscard={isShared && room.status === "playing" ? discardCard : undefined}
           onClose={() => setCarouselOpen(false)}
